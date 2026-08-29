@@ -1,0 +1,71 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "currency-exchange",
+  "title": "Currency Exchange",
+  "description": "Simple Currency Exchange with a selectable rate provider (ExchangeRate-API or UniRateAPI)",
+  "icon": "currency.png",
+  "author": "almatkai",
+  "contributors": ["daudln", "taken"],
+  "license": "MIT",
+  "platforms": ["macOS", "Windows"],
+  "commands": [
+    {
+      "name": "index",
+      "title": "Currency Exchange",
+      "description": "Calculate with Exchange Rate",
+      "mode": "view",
+      "platforms": ["macOS", "Windows"]
+    }
+  ],
+  "preferences": [
+    {
+      "name": "provider",
+      "type": "dropdown",
+      "required": true,
+      "title": "Rate Provider",
+      "description": "Which exchange rate API to query. Switch this if you prefer UniRateAPI's pricing or coverage.",
+      "default": "exchangerate-api",
+      "data": [
+        { "title": "ExchangeRate-API", "value": "exchangerate-api" },
+        { "title": "UniRateAPI", "value": "unirate" }
+      ]
+    },
+    {
+      "name": "api_key",
+      "type": "password",
+      "required": true,
+      "title": "API Key",
+      "description": "Key for the selected provider. ExchangeRate-API: https://app.exchangerate-api.com/dashboard — UniRateAPI: https://unirateapi.com/dashboard",
+      "placeholder": "API key for the selected provider"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.104.1",
+    "node-fetch": "^3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/node-fetch": "^2.6.3",
+    "@types/react": "^19.0.0",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "id": "com.tezbar.currency-exchange",
+  "version": "0.1.0",
+  "tezbar": {
+    "schemaVersion": 1,
+    "platforms": ["macos", "windows"],
+    "repository": "https://github.com/almatkai/currency-exchange",
+    "upstream": {
+      "repository": "https://github.com/raycast/extensions",
+      "path": "extensions/currency-exchange",
+      "commit": "6734d85992290066fd31a7f5bee3cca3d3545a1a"
+    },
+    "linuxStatus": "coming-soon"
+  }
+}
