@@ -62,6 +62,74 @@ export interface CurrencyResult {
   day?: number;
 }
 
+export function evaluateArithmeticExpression(expression: string): number {
+  const compact = expression.replace(/\s+/g, "");
+  const tokens = compact.match(/\d+(?:\.\d+)?|[()+\-*/^]/g) ?? [];
+  if (!compact || tokens.join("") !== compact) throw new Error("Invalid arithmetic expression");
+
+  let position = 0;
+  const peek = () => tokens[position];
+  const consume = () => tokens[position++];
+
+  const parsePrimary = (): number => {
+    if (peek() === "(") {
+      consume();
+      const value = parseExpression();
+      if (consume() !== ")") throw new Error("Missing closing parenthesis");
+      return value;
+    }
+    const token = consume();
+    const value = Number(token);
+    if (!token || !Number.isFinite(value)) throw new Error("Expected a number");
+    return value;
+  };
+
+  const parseUnary = (): number => {
+    if (peek() === "+") {
+      consume();
+      return parseUnary();
+    }
+    if (peek() === "-") {
+      consume();
+      return -parseUnary();
+    }
+    return parsePrimary();
+  };
+
+  const parsePower = (): number => {
+    const base = parseUnary();
+    if (peek() === "^") {
+      consume();
+      return base ** parsePower();
+    }
+    return base;
+  };
+
+  const parseTerm = (): number => {
+    let value = parsePower();
+    while (peek() === "*" || peek() === "/") {
+      const operator = consume();
+      const operand = parsePower();
+      value = operator === "*" ? value * operand : value / operand;
+    }
+    return value;
+  };
+
+  const parseExpression = (): number => {
+    let value = parseTerm();
+    while (peek() === "+" || peek() === "-") {
+      const operator = consume();
+      const operand = parseTerm();
+      value = operator === "+" ? value + operand : value - operand;
+    }
+    return value;
+  };
+
+  const result = parseExpression();
+  if (position !== tokens.length || !Number.isFinite(result)) throw new Error("Invalid arithmetic expression");
+  return result;
+}
+
 export function enrichExchangeData(
   currencyData: CurrencyResult,
   amount: number,
@@ -117,8 +185,7 @@ export function parseAmountExpression(amountExpression: string): {
   const matches = /(^[\d().+\-*/^]+)(.*)/.exec(amountExpression);
   if (matches) {
     try {
-      // eslint-disable-next-line no-eval
-      amount = eval(matches[1]);
+      amount = evaluateArithmeticExpression(matches[1]);
     } catch {
       // ignore
     }

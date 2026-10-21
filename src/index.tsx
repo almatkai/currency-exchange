@@ -13,6 +13,7 @@ import {
 } from "@raycast/api";
 import fetch, { Response, AbortError } from "node-fetch";
 import { currencyCode2Name, currencyCode2CountryAndRegion } from "./currency";
+import { parseAmountExpression } from "./lib/currency";
 
 const STORAGE_KEY_FROM_CURRENCY_CODE = "fromCurrencyCode";
 const STORAGE_KEY_PINNED_CURRENCY_CODE = "pinnedCurrencyCode";
@@ -276,35 +277,7 @@ function useExchange() {
 
   const exchange = useCallback(
     async function exchange(amountExpression: string) {
-      let amount = 0;
-      let filter = "";
-      let historyDate: Date | null = null;
-
-      const matches = /(^[\d().+\-*/^]+)(.*)/.exec(amountExpression);
-      console.log(matches);
-      if (matches) {
-        try {
-          amount = eval(matches[1]);
-        } catch (error) {
-          console.error("not a right expression...");
-        }
-
-        if (matches[2]) {
-          const historyMatches = /\s+at\s+(\d{4}\/\d{1,2}\/\d{1,2})/.exec(matches[2]);
-          console.log(historyMatches);
-          const historyMatchSize = historyMatches?.length;
-          historyDate =
-            historyMatchSize && historyMatchSize > 1 && historyMatches[1] ? new Date(historyMatches[1]) : null;
-          historyDate = historyDate && !isNaN(historyDate?.getTime()) ? historyDate : null;
-
-          const filterMatches = /\s+in\s+([a-zA-Z\s]*)/.exec(matches[2]);
-          console.log(filterMatches);
-          const filterMatchSize = filterMatches?.length;
-          filter = filterMatchSize && filterMatchSize > 0 && filterMatches[1] ? filterMatches[1] : "";
-          //fix when at is matched in keywords
-          filter = filter.replace(/\s+at\s+/, " ").trim();
-        }
-      }
+      const { amount, filter, historyDate } = parseAmountExpression(amountExpression);
 
       cancelRef.current?.abort();
       cancelRef.current = new AbortController();
