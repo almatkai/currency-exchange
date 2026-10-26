@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 3,
+  "id": "com.tezbar.native.currency-exchange",
+  "slug": "currency-exchange",
+  "name": "Currency Exchange",
+  "version": "0.1.0",
+  "description": "Simple Currency Exchange with a selectable rate provider (ExchangeRate-API or UniRateAPI)",
+  "icon": "resources/currency.png",
+  "author": "almatkai",
+  "runtime": "rust",
+  "execution": "process",
+  "protocolVersion": 1,
+  "repository": "https://github.com/almatkai/currency-exchange",
+  "platforms": [
+    "macOS",
+    "Windows"
+  ],
+  "commands": [
+    {
+      "name": "index",
+      "title": "Currency Exchange",
+      "description": "Calculate with Exchange Rate",
+      "mode": "view",
+      "runtime": "rust",
+      "platforms": [
+        "macOS",
+        "Windows"
+      ],
+      "refreshMs": null,
+      "concurrency": "serialize",
+      "timeoutMs": 30000
+    }
+  ],
+  "preferences": [
+    {
+      "name": "provider",
+      "type": "dropdown",
+      "required": true,
+      "title": "Rate Provider",
+      "description": "Which exchange rate API to query. Switch this if you prefer UniRateAPI's pricing or coverage.",
+      "default": "exchangerate-api",
+      "data": [
+        {
+          "title": "ExchangeRate-API",
+          "value": "exchangerate-api"
+        },
+        {
+          "title": "UniRateAPI",
+          "value": "unirate"
+        }
+      ]
+    },
+    {
+      "name": "api_key",
+      "type": "password",
+      "required": true,
+      "title": "API Key",
+      "description": "Key for the selected provider. ExchangeRate-API: https://app.exchangerate-api.com/dashboard \u2014 UniRateAPI: https://unirateapi.com/dashboard",
+      "placeholder": "API key for the selected provider"
+    }
+  ],
+  "replaces": [
+    "com.tezbar.currency-exchange",
+    "raycast.currency-exchange"
+  ],
+  "capabilities": [
+    "clipboard.write"
+  ],
+  "artifacts": {},
+  "verification": [
+    {
+      "platform": "macOS",
+      "state": "not-run",
+      "note": "No real OS GUI or full host installation acceptance."
+    },
+    {
+      "platform": "Windows",
+      "state": "not-run",
+      "note": "No real OS GUI or full host installation acceptance."
+    }
+  ]
+}

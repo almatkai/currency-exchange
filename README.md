@@ -26,3 +26,5 @@ pnpm build
 ## Credits
 
 Adapted for Tezbar from Raycast's MIT-licensed `currency-exchange` extension at upstream commit `6734d85992290066fd31a7f5bee3cca3d3545a1a`. Original author `xeric` and contributors remain credited in `package.json`.
+
+Native Rust V2 development port: [v2/README.md](v2/README.md).

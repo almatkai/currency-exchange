@@ -1,0 +1,18 @@
+{
+  "pin": "ea100cee3f69711de12485ba061950c5fc65258f",
+  "files": {
+    "LICENSE": "0ed6b1b2760294d4aaaa45be38e166fcc0168e1dd5190423c096fcbe1c94afbf",
+    "schemas/extension-v3.schema.json": "6f42f0316aa88097703496e828b11afcc7caecf8477fa7502df903c3ad2a8048",
+    "src-tauri/src/native_core/launcher/clipboard.rs": "8af5b882e06c9025d09a71b46b2f36c3e2a41513cd44fd2d0f945c58c9aa8d7d",
+    "src-tauri/src/native_core/extensions/native.rs": "f11d1f436fa5f9b045a7ac25f3516adb0efc6d4c12ce1f0f0c4768940fafe16f",
+    "src-tauri/src/native_core/extensions/registry.rs": "05dd5d9c5fafbac3034e9ba5e101e345a5d3bb658a49d22696e59ea924530e66",
+    "src-tauri/src/native_core/extensions/process_host.rs": "daf45815d76762323c6c1320c88ed24dfe28160a60bb4974b8073e3f17a3b982",
+    "src-tauri/src/native_core/extensions/v2_runtime.rs": "537aeb67c9a7ad052c348d6c4fe09b19027854d07e912a432d36bc14896fc392",
+    "src/renderer/ExtensionRuntimeView.tsx": "c8378d1a1cc91cf622f81dc1bd88ed986ea2e9c396f7ff497e649171f573c5e8",
+    "src/renderer/src/raycast-api/index.tsx": "7fc8413a72b92e8f88b0939cd93f91624018fe0765baa1e71b38b86f8cc77a64",
+    "src/renderer/src/raycast-api/form-runtime.tsx": "8568d0ac5be03eea97d0def38067dbbbdce5ae97c36a51024857ef20dce299a6",
+    "src/renderer/src/raycast-api/list-runtime.tsx": "c7e253c34ce6e0a5132cab96bf1f0388393faca79ff57c3fdc7956f377a0ab0f",
+    "src/shared/extensionRuntime.ts": "47a290032a9967e2dee5142030b4ef8cfc5237a79521aa535f8a12d8c16deda4",
+    "src/main/extension-runner.ts": "16bfc8a0393bd6378b4c06a19082daa46eb4b26cfe2ae78492ad3dd074e24744"
+  }
+}
