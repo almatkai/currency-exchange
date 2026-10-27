@@ -1,0 +1,23 @@
+Currency Exchange — Tezbar external Rust V2
+
+Independent port of almatkai/currency-exchange at
+8759bec78fa594cc3c56e9c3746bfd31e78d0c69 (MIT, 2026 almatkai).
+Original Raycast extension and PNG assets derive from raycast/extensions at
+6734d85992290066fd31a7f5bee3cca3d3545a1a (MIT, 2021 Raycast).
+The original V1 LICENSE contains literal backslash-n sequences. It remains
+byte-identical; v2/LICENSE decodes those sequences into readable line breaks.
+The unmodified upstream MIT notice is licenses/RAYCAST-UPSTREAM-MIT.txt.
+
+Uses tezbar-extension-sdk 0.1.1 under Apache-2.0, pinned HTTPS Git commit
+ e955911f0bf5b558f9d3eb5183df0adc95c22af2.
+See licenses/SDK-APACHE-2.0.txt and per-crate license files. DEPENDENCIES.json
+records the exact locked crate versions and their declared SPDX expressions.
+Optional/target-specific dependencies are included conservatively in that notice
+inventory; the inventory does not claim each is linked into every executable.
+
+Host fixtures are verbatim excerpts/files from almatkai/Tezbar commit
+ ea100cee3f69711de12485ba061950c5fc65258f, used only for review and isolated QA.
+Their original license is integration/fixtures/host/LICENSE.
+Unapplied integration patches are outside the product executable.
+Node/React/TypeScript/Ajv and source node-fetch libraries are development QA only.
+They are not bundled or required by the Rust product.

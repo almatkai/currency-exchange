@@ -1,0 +1,421 @@
+--- a/src/renderer/src/raycast-api/index.tsx
++++ b/src/renderer/src/raycast-api/index.tsx
+@@ -31,6 +31,7 @@
+   actionNotice?: { message: string; tone: 'success' | 'error' } | null
+   onBack: () => void
+   onSearchTextChanged: (searchText: string) => Promise<void> | void
++  onDraftChanged?: () => void
+   onLoadMore: () => Promise<void> | void
+   onInvokeAction: (actionId: string, formValues?: Record<string, unknown>) => Promise<void> | void
+ }
+@@ -59,8 +60,27 @@
+     onBack,
+     onSearchTextChanged,
+     onLoadMore,
+-    onInvokeAction,
++    onInvokeAction: invokeAction,
++    onDraftChanged,
+   } = props
++  const draftBlocked = useRef(false)
++  const formBusyRef = useRef(false)
++  const [formBusy, setFormBusy] = useState(false)
++  const nativeToken = typeof root.props?.viewToken === 'string' ? root.props.viewToken : null
++  useEffect(() => { draftBlocked.current = false }, [nativeToken])
++  const onInvokeAction = useCallback(async (id: string, values?: Record<string, unknown>) => {
++    if (nativeToken && (draftBlocked.current || formBusyRef.current)) return
++    const submitting = Boolean(nativeToken && root.type === 'Form' && actions.some(a => a.id === id && a.kind === 'submit-form'))
++    if (submitting) { formBusyRef.current = true; setFormBusy(true) }
++    try {
++      const pending = invokeAction(id, nativeToken ? { ...values,
++        __tezbarViewToken: nativeToken, __tezbarSearchText: root.props?.searchText,
++        __tezbarFromCurrency: root.props?.fromCurrencyCode } : values)
++      if (nativeToken && id === (root.props?.searchBarAccessory as ExtensionRuntimeNode | undefined)?.props?.actionId) draftBlocked.current = true
++      await pending
++    } finally { if (submitting) { formBusyRef.current = false; setFormBusy(false) } }
++  }, [invokeAction, nativeToken, root, actions])
++  const onDraft = useCallback(() => { draftBlocked.current = true; onDraftChanged?.() }, [onDraftChanged])
+   const [showActions, setShowActions] = useState(false)
+   const [actionFilterIds, setActionFilterIds] = useState<string[] | null>(null)
+   const formRuntimeRef = useRef<FormRuntimeHandle>(null)
+@@ -161,6 +181,8 @@
+               onChangeField={(actionId, value) => onInvokeAction(actionId, { value })}
+               onInvokeAction={onInvokeAction}
+               onOpenActions={openActions}
++              onDraftChanged={onDraftChanged}
++              disabled={formBusy}
+               actionNotice={actionNotice}
+             />
+           ) : kind === 'grid' ? (
+@@ -192,6 +214,7 @@
+               actions={actions}
+               onOpenActions={openActions}
+               onSearchTextChanged={onSearchTextChanged}
++              onDraftChanged={onDraft}
+               onLoadMore={onLoadMore}
+             />
+           )}
+--- a/src/renderer/src/raycast-api/form-runtime.tsx
++++ b/src/renderer/src/raycast-api/form-runtime.tsx
+@@ -206,9 +206,11 @@
+ 
+ type FormRuntimeProps = {
+   root: ExtensionRuntimeNode
++  disabled?: boolean
+   title: string
+   onBack: () => void
+   onSubmitForm: (values: Record<string, unknown>) => void
++  onDraftChanged?: () => void
+   onChangeField: (actionId: string, value: unknown) => Promise<void> | void
+   onInvokeAction: (actionId: string, values?: Record<string, unknown>) => Promise<void> | void
+   onOpenActions: () => void
+@@ -216,7 +218,7 @@
+ }
+ 
+ export const FormRuntime = forwardRef<FormRuntimeHandle, FormRuntimeProps>(function FormRuntime(
+-  { root, title, onBack, onSubmitForm, onChangeField, onInvokeAction, onOpenActions, actionNotice },
++  { root, disabled = false, title, onBack, onSubmitForm, onChangeField, onDraftChanged, onInvokeAction, onOpenActions, actionNotice },
+   ref
+ ) {
+   const items = useMemo(() => collectFormItems(root), [root])
+@@ -277,6 +279,8 @@
+   }, [releaseFilePickerBlurSuppression])
+ 
+   const updateValue = (field: FormField, value: unknown): void => {
++    if (disabled) return
++    onDraftChanged?.()
+     setValues((previous) => ({ ...previous, [field.id]: value }))
+     if (field.actionId) void onChangeField(field.actionId, value)
+   }
+@@ -286,7 +290,7 @@
+       className="flex h-full min-h-0 flex-col"
+       onSubmit={(event) => {
+         event.preventDefault()
+-        onSubmitForm(values)
++        !disabled && onSubmitForm(values)
+       }}
+       onKeyDownCapture={(event) => {
+         if (
+@@ -298,7 +302,7 @@
+           return
+         }
+         event.preventDefault()
+-        onSubmitForm(values)
++        !disabled && onSubmitForm(values)
+       }}
+     >
+       <div className="glass-card mb-2 shrink-0 px-4 py-3">
+@@ -306,7 +310,7 @@
+       </div>
+ 
+       <div className="glass-card min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8">
+-        <div className="mx-auto max-w-[900px] space-y-4">
++        <fieldset disabled={disabled} className="mx-auto max-w-[900px] space-y-4">
+           {nativeColorWheel ? (
+             <NativeColorWheel
+               data={nativeColorWheel}
+@@ -520,7 +524,7 @@
+               This form did not expose any editable fields.
+             </div>
+           ) : null}
+-        </div>
++        </fieldset>
+       </div>
+ 
+       {actionNotice ? (
+@@ -548,6 +552,7 @@
+         </button>
+         <div className="flex items-center gap-1">
+           <button
++            disabled={disabled}
+             type="submit"
+             className="rounded-tezbar-chip px-1.5 py-1 transition hover:bg-white/[0.06]"
+             aria-label="Submit form"
+--- a/src/renderer/src/raycast-api/list-runtime.tsx
++++ b/src/renderer/src/raycast-api/list-runtime.tsx
+@@ -27,6 +27,7 @@
+ 
+ type ListAccessory = {
+   actionId?: string
++  value?: string
+   options: Array<{ title: string; value: string; icon?: unknown }>
+ }
+ 
+@@ -48,6 +49,7 @@
+   walk(node)
+ 
+   return {
++    value: typeof node.props?.value === 'string' ? node.props.value : undefined,
+     actionId: typeof node.props?.actionId === 'string' ? node.props.actionId : undefined,
+     options,
+   }
+@@ -476,6 +478,7 @@
+   actions,
+   onOpenActions,
+   onSearchTextChanged,
++  onDraftChanged,
+   onLoadMore,
+ }: {
+   root: ExtensionRuntimeNode
+@@ -485,6 +488,7 @@
+   onRunPrimaryAction: (actionId?: string, formValues?: Record<string, unknown>) => void
+   actions: ExtensionRuntimeAction[]
+   onOpenActions: (actionIds?: string[]) => void
++  onDraftChanged?: () => void
+   onSearchTextChanged: (searchText: string) => Promise<void> | void
+   onLoadMore: () => Promise<void> | void
+ }): React.ReactNode {
+@@ -531,7 +535,7 @@
+   )
+   const [selected, setSelected] = useState(0)
+   const [accessoryValue, setAccessoryValue] = useState(
+-    searchAccessory?.options[0]?.value ?? '',
++    searchAccessory?.value ?? searchAccessory?.options[0]?.value ?? '',
+   )
+   const [loadingMore, setLoadingMore] = useState(false)
+ 
+@@ -552,6 +556,7 @@
+   useEffect(() => {
+     setAccessoryValue((current) => {
+       if (!searchAccessory || searchAccessory.options.length === 0) return ''
++      if (searchAccessory.value !== undefined) return searchAccessory.value
+       return searchAccessory.options.some((option) => option.value === current)
+         ? current
+         : searchAccessory.options[0]?.value ?? ''
+@@ -559,6 +564,7 @@
+   }, [searchAccessory])
+ 
+   useEffect(() => {
++    if (root.props?.viewToken) return
+     if (query === lastSentQuery.current) return
+     if (debounceTimer.current) {
+       clearTimeout(debounceTimer.current)
+@@ -572,7 +578,7 @@
+         clearTimeout(debounceTimer.current)
+       }
+     }
+-  }, [query, onSearchTextChanged])
++  }, [query, onSearchTextChanged, root.props?.viewToken])
+ 
+   const colorConversionRows = useMemo<ListRow[]>(() => {
+     if (!isColorConversionSurface) return []
+@@ -679,6 +685,7 @@
+     const candidate = (root.children ?? []).find((entry) => entry.type === 'List.EmptyView')
+     if (!candidate) return null
+     return {
++      icon: parseRowIcon(candidate.props?.icon),
+       title: typeof candidate.props?.title === 'string' ? candidate.props.title : 'No results',
+       description:
+         typeof candidate.props?.description === 'string' ? candidate.props.description : '',
+@@ -689,14 +696,14 @@
+   const isFirstTimePackageLoad =
+     filteredRows.length === 0 &&
+     emptyView?.title === 'Loading Packages'
+-  const emptyTitle = isColorConversionSurface
++  const emptyTitle = hasServerSearch && emptyView ? emptyView.title : isColorConversionSurface
+     ? hasQuery
+       ? 'No color formats'
+       : 'Enter a color'
+     : hasQuery
+       ? 'No matching applications'
+       : emptyView?.title || 'No list items'
+-  const emptyDescription = isColorConversionSurface
++  const emptyDescription = hasServerSearch && emptyView ? emptyView.description : isColorConversionSurface
+     ? hasQuery
+       ? 'Try HEX, RGB, RGBA, HSL, or HSLA.'
+       : 'Type a color value to convert it.'
+@@ -720,15 +727,23 @@
+                 type="text"
+                 value={query}
+                 onChange={(event) => {
++                  onDraftChanged?.()
+                   setQuery(event.target.value)
+                   setSelected(0)
++                  if (root.props?.viewToken) void onSearchTextChanged(event.target.value)
+                 }}
+                 placeholder={searchBarPlaceholder}
+                 className="h-8 w-full rounded-tezbar-chip border border-white/10 bg-white/[0.04] px-2.5 text-[12px] text-ink-1 placeholder:text-ink-4 outline-none transition focus:border-white/20 focus:bg-white/[0.06]"
+                 aria-label={searchBarPlaceholder}
+               />
+             </div>
+-            {searchAccessory && searchAccessory.options.length > 0 ? (
++            {searchAccessory && searchAccessory.options.length > 20 ? (
++              <select aria-label="From Currency" value={accessoryValue} onChange={(event) => {
++                if (searchAccessory.actionId) onRunPrimaryAction(searchAccessory.actionId, { value: event.target.value })
++              }}>
++                {searchAccessory.options.map(option => <option key={option.value} value={option.value}>{option.title}</option>)}
++              </select>
++            ) : searchAccessory && searchAccessory.options.length > 0 ? (
+               <div
+                 className={cx(
+                   'flex min-w-0 max-w-full items-center gap-1 overflow-x-auto rounded-tezbar-field p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+@@ -777,6 +792,7 @@
+         {filteredRows.length === 0 ? (
+           <div className="flex h-full items-center justify-center text-center">
+             <div>
++              {emptyView?.icon ? <div className="mb-3 flex justify-center"><RowIcon row={{ id: 'empty', title: emptyTitle, subtitle: '', icon: emptyView.icon }} /></div> : null}
+               <p className="text-[13px] text-ink-2">
+                 {emptyTitle}
+               </p>
+--- a/src/renderer/ExtensionRuntimeView.tsx
++++ b/src/renderer/ExtensionRuntimeView.tsx
+@@ -508,8 +508,9 @@
+       subscribeVisibility: window.tezbar.onWindowVisibility,
+       refresh: async () => {
+         try {
++          const refreshEpoch = searchRequestSeq.current
+           const result = await window.tezbar.extensionRefreshSession({ sessionId: state.sessionId })
+-          if (cancelled || (result.ok && result.mode === 'unchanged')) return
++          if (cancelled || refreshEpoch !== searchRequestSeq.current || (result.ok && result.mode === 'unchanged')) return
+           if (!result.ok) {
+             setError(result.message)
+             return
+@@ -573,8 +574,9 @@
+   )
+ 
+   const handleLoadMore = useCallback(async () => {
++    const loadEpoch = searchRequestSeq.current
+     const result = await window.tezbar.extensionLoadMore({ sessionId: state.sessionId })
+-    if (currentSession.current !== sessionOwner) return
++    if (currentSession.current !== sessionOwner || loadEpoch !== searchRequestSeq.current) return
+     if (result.ok && result.mode === 'unchanged') return
+     if (!result.ok) {
+       setError(result.message)
+@@ -623,6 +625,7 @@
+             actions={state.actions}
+             actionNotice={actionNotice}
+             onBack={onBack}
++            onDraftChanged={() => { searchRequestSeq.current += 1 }}
+             onSearchTextChanged={handleSearchTextChanged}
+             onLoadMore={handleLoadMore}
+             onInvokeAction={async (actionId, formValues) => {
+@@ -631,13 +634,15 @@
+               if (isFormSurface && invokedAction?.kind === 'submit-form') {
+                 showActionNotice(`Working · ${invokedAction.title}…`, true)
+               }
++              const actionEpoch = searchRequestSeq.current
+               const result = await window.tezbar.extensionInvokeAction({
+                 sessionId: state.sessionId,
+                 actionId,
+                 formValues,
+               })
+ 
+-              if (currentSession.current !== sessionOwner) return
++              if (currentSession.current !== sessionOwner || actionEpoch !== searchRequestSeq.current) return
++              if (result.ok && result.mode === 'unchanged') return
+               if (!result.ok) {
+                 setError(result.message)
+                 showActionFailure(result.message)
+--- a/src-tauri/src/native_core/extensions/registry.rs
++++ b/src-tauri/src/native_core/extensions/registry.rs
+@@ -16,6 +16,8 @@
+     path: PathBuf,
+     manifest: Value,
+     data_dir: PathBuf,
++    // Active verified package resources; canonical path above owns preferences.
++    resource_dir: PathBuf,
+ }
+ 
+ fn slug(id: &str) -> Result<String, String> {
+@@ -104,12 +106,14 @@
+             if !manifest.is_object() || !seen.insert(id.to_lowercase()) {
+                 continue;
+             }
++            let resource_dir = if native { super::process_install::resolve(ctx, &id).ok().map(|p| p.dir).unwrap_or_else(|| path.clone()) } else { path.clone() };
+             found.push(Installed {
+                 id,
+                 slug,
+                 path,
+                 manifest,
+                 data_dir: ctx.paths.data_dir.clone(),
++                resource_dir,
+             });
+         }
+     }
+@@ -164,6 +168,18 @@
+     .then_some(extension)
+ }
+ 
++pub(super) fn verified_native_alias(ctx: &CoreContext, requested: &str, command: &str) -> Option<String> {
++    let mut matches = collect(ctx).into_iter().filter(|entry| {
++        entry.id.starts_with("com.tezbar.native.") &&
++        entry.manifest["healthError"].is_null() &&
++        entry.manifest["replaces"].as_array().is_some_and(|a| a.iter().any(|id| id.as_str() == Some(requested))) &&
++        super::process_install::resolve(ctx, &entry.id).is_ok() &&
++        installed_command(ctx, &entry.id, command).is_some()
++    }).map(|e| e.id);
++    let first = matches.next()?;
++    matches.next().is_none().then_some(first)
++}
++
+ fn platform() -> &'static str {
+     if cfg!(target_os = "windows") {
+         "Windows"
+@@ -245,8 +261,8 @@
+         return None;
+     }
+     let mut candidates = vec![
+-        extension.path.join(relative),
+-        extension.path.join("assets").join(relative),
++        extension.resource_dir.join(relative),
++        extension.resource_dir.join("assets").join(relative),
+     ];
+     if extension.id.starts_with("com.tezbar.native.") {
+         if let Some(packages) = extension.path.parent() {
+@@ -309,8 +325,8 @@
+         return None;
+     }
+     let mut candidates = vec![
+-        extension.path.join(relative),
+-        extension.path.join("assets").join(relative),
++        extension.resource_dir.join(relative),
++        extension.resource_dir.join("assets").join(relative),
+     ];
+     if extension.id.starts_with("com.tezbar.native.") {
+         if let Some(packages) = extension.path.parent() {
+@@ -390,7 +406,7 @@
+         let mut value=json!({"id":extension.id,"slug":extension.slug,"name":fallback(pkg,"title",&extension.slug),
+             "version":fallback(pkg,"version","1.0.0"),"description":fallback(pkg,"description",""),"author":author,"owner":owner,
+             "authorIconUrl":avatar(&json!(author)),"iconPath":icon_path(extension),"packageJsonPath":extension.path.join("package.json"),
+-            "extensionPath":extension.path,"commands":commands,"installedAt":installed_at});
++            "extensionPath":extension.resource_dir,"commands":commands,"installedAt":installed_at});
+         if extension.id.starts_with("com.tezbar.native.") { value["author"]=json!("Tezbar"); value["owner"]=json!("Tezbar"); value["runtime"]=json!("rust"); value["nativeV2"]=super::v2_catalog::describe(pkg.clone()); value["platforms"]=pkg["platforms"].clone(); value["healthError"]=pkg["healthError"].clone(); }
+         let rule=super::acquisition::for_id(&extension.id);
+         if extension.id.starts_with("com.tezbar.native.") || rule != Ok(super::acquisition::Rule::Remote) { value["acquisition"]=super::acquisition::metadata(rule); }
+@@ -574,6 +590,7 @@
+     let extension = Installed {
+         id: id.into(),
+         slug: slug(id)?,
++        resource_dir: path.clone(),
+         path,
+         manifest: Value::Null,
+         data_dir: ctx.paths.data_dir.clone(),
+--- a/src-tauri/src/native_core/extensions/native.rs
++++ b/src-tauri/src/native_core/extensions/native.rs
+@@ -615,7 +615,7 @@
+             self.dispatch(channel, body, id).await.map(Some)
+         } else if channel == "extension:run-command" {
+             let requested = body["extensionId"].as_str().unwrap_or("");
+-            if requested.starts_with("com.tezbar.native.") || v2_runtime::slug(requested).is_some()
++            if requested.starts_with("com.tezbar.native.") || registry::verified_native_alias(ctx, requested, body["commandName"].as_str().unwrap_or("")).is_some()
+             {
+                 self.launch(ctx, files, body).await
+             } else {
+@@ -644,7 +644,7 @@
+         let canonical = if requested.starts_with("com.tezbar.native.") {
+             requested.to_string()
+         } else {
+-            v2_runtime::canonical_id(v2_runtime::slug(requested).ok_or("Unknown extension")?)
++            registry::verified_native_alias(ctx, requested, command).ok_or("Unknown or uncovered extension alias")?
+         };
+         let slot = self.slot(&canonical);
+         let mut generation = slot.generation.subscribe();
+--- a/src/shared/extensionRuntime.ts
++++ b/src/shared/extensionRuntime.ts
+@@ -116,6 +116,7 @@
+ }
+ 
+ export type ExtensionInvokeActionResult =
++  | { ok: true; mode: 'unchanged' }
+   | {
+       ok: true
+       mode: 'no-view'
